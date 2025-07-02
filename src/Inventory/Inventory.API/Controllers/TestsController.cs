@@ -7,13 +7,17 @@ namespace Inventory.API.Controllers
     [ApiController]
     public class TestsController : ControllerBase
     {
+        private readonly IConfiguration _configuration;
+
+        public TestsController(IConfiguration configuration)
+        {
+            _configuration = configuration;
+        }
+
 
         [HttpGet("DateTime")]
         public IActionResult Get()
         {
-            var argentinaTimeZone = GetArgentinaTimeZone();
-            var argentinaTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, argentinaTimeZone);
-
             var result = new
             {
                 HostOS = GetOperatingSystemInfo(),
@@ -23,29 +27,40 @@ namespace Inventory.API.Controllers
                     Date = DateTime.UtcNow.ToLongDateString(),
                     Time = DateTime.UtcNow.ToLongTimeString()
                 },
-                Argentina = new
-                {
-                    Zone = argentinaTimeZone.DisplayName,
-                    Date = argentinaTime.ToLongDateString(),
-                    Time = argentinaTime.ToLongTimeString()
-                }
             };
 
             return Ok(result);
         }
 
-        private TimeZoneInfo GetArgentinaTimeZone()
+
+        [HttpGet("EnvironmentVariables")]
+        public IActionResult EnvironmentVariables()
         {
-            try
+            var rabbitHost = _configuration["RabbitMQ:Host"];
+            var rabbitUser = _configuration["RabbitMQ:Username"];
+            var rabbitPass = _configuration["RabbitMQ:Password"];
+            var SmtpServer = _configuration["EmailSettings:SmtpServer"];
+            var Port = _configuration["EmailSettings:Port"];
+            var SenderName = _configuration["EmailSettings:SenderName"];
+            var SenderEmail = _configuration["EmailSettings:SenderEmail"];
+            var To = _configuration["EmailSettings:To"];
+            var Username = _configuration["EmailSettings:Username"];
+            var Password = _configuration["EmailSettings:Password"];
+
+
+            return Ok(new
             {
-                // Windows
-                return TimeZoneInfo.FindSystemTimeZoneById("Argentina Standard Time");
-            }
-            catch (TimeZoneNotFoundException)
-            {
-                // Linux/macOS
-                return TimeZoneInfo.FindSystemTimeZoneById("America/Argentina/Buenos_Aires");
-            }
+                rabbitHost,
+                rabbitUser,
+                rabbitPass,
+                SmtpServer,
+                Port,
+                SenderName,
+                SenderEmail,
+                To,
+                Username,
+                Password,
+            });
         }
 
         private string GetOperatingSystem()
