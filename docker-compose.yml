@@ -1,0 +1,22 @@
+version: "3.8"
+
+services:
+  rabbitmq:
+    image: masstransit/rabbitmq
+    container_name: rabbitmq
+    hostname: rabbitmq
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBIT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBIT_PASS}
+    networks:
+      - demo_network
+    restart: always
+
+
+networks:
+  demo_network:
+    name: demo_network
+    driver: bridge
