@@ -1,0 +1,64 @@
+version: "3.8"
+
+services:
+  rabbitmq:
+    image: masstransit/rabbitmq
+    container_name: rabbitmq
+    hostname: rabbitmq
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBIT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBIT_PASS}
+    networks:
+      - demo_network
+    restart: always
+
+  inventory-api:
+    build:
+      context: .
+      dockerfile: src/Inventory/Inventory.API/Dockerfile
+    container_name: inventory-api
+    ports:
+      - "5006:8080"
+      - "5007:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=${RABBIT_USER}
+      - RabbitMQ__Password=${RABBIT_PASS}
+    depends_on:
+      - rabbitmq
+    networks:
+      - demo_network
+    restart: always
+
+  notification-worker:
+    build:
+      context: .
+      dockerfile: src/Notification/Notification.Worker/Dockerfile
+    container_name: notification-worker
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=${RABBIT_USER}
+      - RabbitMQ__Password=${RABBIT_PASS}
+      - EmailSettings__SmtpServer=${EMAIL_SMTP_SERVER}
+      - EmailSettings__Port=${EMAIL_PORT}
+      - EmailSettings__SenderName=${EMAIL_SENDER_NAME}
+      - EmailSettings__SenderEmail=${EMAIL_SENDER_EMAIL}
+      - EmailSettings__To=${EMAIL_TO}
+      - EmailSettings__Username=${EMAIL_USERNAME}
+      - EmailSettings__Password=${EMAIL_PASSWORD}
+    depends_on:
+      - rabbitmq
+    networks:
+      - demo_network
+    restart: always
+
+
+networks:
+  demo_network:
+    name: demo_network
+    driver: bridge
