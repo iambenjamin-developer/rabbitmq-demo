@@ -24,3 +24,8 @@ docker image prune -a -f       # (Opcional) Eliminar imágenes no utilizadas
 ```
 docker-compose up -d --build
 ```
+
+<!-- Diagrama de arquitectura https://www.blocksandarrows.com/ -->
+<p align="center">
+  <img src="diagram.png" alt="Diagrama de arquitectura" />
+</p>
