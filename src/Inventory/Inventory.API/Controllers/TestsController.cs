@@ -8,12 +8,10 @@ namespace Inventory.API.Controllers
     public class TestsController : ControllerBase
     {
 
+
         [HttpGet("DateTime")]
         public IActionResult Get()
         {
-            var argentinaTimeZone = GetArgentinaTimeZone();
-            var argentinaTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, argentinaTimeZone);
-
             var result = new
             {
                 HostOS = GetOperatingSystemInfo(),
@@ -23,30 +21,11 @@ namespace Inventory.API.Controllers
                     Date = DateTime.UtcNow.ToLongDateString(),
                     Time = DateTime.UtcNow.ToLongTimeString()
                 },
-                Argentina = new
-                {
-                    Zone = argentinaTimeZone.DisplayName,
-                    Date = argentinaTime.ToLongDateString(),
-                    Time = argentinaTime.ToLongTimeString()
-                }
             };
 
             return Ok(result);
         }
 
-        private TimeZoneInfo GetArgentinaTimeZone()
-        {
-            try
-            {
-                // Windows
-                return TimeZoneInfo.FindSystemTimeZoneById("Argentina Standard Time");
-            }
-            catch (TimeZoneNotFoundException)
-            {
-                // Linux/macOS
-                return TimeZoneInfo.FindSystemTimeZoneById("America/Argentina/Buenos_Aires");
-            }
-        }
 
         private string GetOperatingSystem()
         {
