@@ -1,7 +1,9 @@
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
 using Notification.Application.Interfaces;
 using Notification.Application.Services;
 using Notification.Application.Settings;
+using Notification.Infrastructure;
 using Notification.Worker.Consumers;
 using RabbitMQ.Client;
 
@@ -13,13 +15,18 @@ namespace Notification.Worker
         {
             var builder = Host.CreateApplicationBuilder(args);
 
+            // Configuración de la base de datos
+            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+            builder.Services.AddDbContext<NotificationDbContext>(options =>
+                options.UseNpgsql(connectionString));
+
             //Email Configuration 
             builder.Services.Configure<EmailSettings>(
                 builder.Configuration.GetSection("EmailSettings"));
 
             builder.Services.AddTransient<IEmailService, EmailService>();
 
-
+            // Worker en segundo plano
             builder.Services.AddHostedService<Worker>();
 
             // Configuración de MassTransit + RabbitMQ
@@ -93,6 +100,14 @@ namespace Notification.Worker
             });
 
             var host = builder.Build();
+
+            // Migraciones EF Core
+            using (var scope = host.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();
+                db.Database.Migrate();
+            }
+
             host.Run();
         }
     }
