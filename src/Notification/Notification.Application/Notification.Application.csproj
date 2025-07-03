@@ -7,6 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="MailKit" Version="4.13.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\Shared\Shared.Contracts\Shared.Contracts.csproj" />
     <ProjectReference Include="..\..\Shared\Shared.Core\Shared.Core.csproj" />
     <ProjectReference Include="..\Notification.Domain\Notification.Domain.csproj" />
