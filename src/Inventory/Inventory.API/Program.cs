@@ -1,4 +1,6 @@
-﻿using MassTransit;
+﻿using Inventory.Infrastructure;
+using MassTransit;
+using Microsoft.EntityFrameworkCore;
 using RabbitMQ.Client;
 using Shared.Contracts.Events;
 
@@ -6,9 +8,14 @@ namespace Inventory.API
 {
     public class Program
     {
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+
+            // Add PostgreSQL DbContext
+            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+            builder.Services.AddDbContext<InventoryDbContext>(options =>
+                options.UseNpgsql(connectionString));
 
             // Add services to the container.
 
@@ -60,6 +67,13 @@ namespace Inventory.API
             builder.Services.AddSwaggerGen();
 
             var app = builder.Build();
+
+            // Ejecutar seed de datos (migración + carga condicional)
+            using (var scope = app.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
+                await DbInitializer.SeedDataAsync(context);
+            }
 
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
