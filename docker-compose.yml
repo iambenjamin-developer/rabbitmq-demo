@@ -1,5 +1,6 @@
 services:
 
+
   rabbitmq:
     image: masstransit/rabbitmq
     container_name: rabbitmq
@@ -72,8 +73,10 @@ services:
       - POSTGRES_DB=${POSTGRES_INVENTORY_DB}
     ports:
       - "5432:5432"
-    volumes:
-      - inventory_data:/var/lib/postgresql/data
+    # Volumen comentado para evitar errores de 'volume sharing is not enabled' en Docker Desktop
+    # Esto hace que los datos del contenedor NO se persistan en el host.
+    # volumes:
+    #   - inventory_data:/var/lib/postgresql/data
     networks:
       - kinetic_network
     restart: always
@@ -88,21 +91,27 @@ services:
       - POSTGRES_DB=${POSTGRES_NOTIFICATION_DB}
     ports:
       - "5433:5432"
-    volumes:
-      - notification_data:/var/lib/postgresql/data
+    # Volumen comentado por la misma razon que el anterior
+    # volumes:
+    #   - notification_data:/var/lib/postgresql/data
     networks:
       - kinetic_network
     restart: always
 
 
-volumes:
-  inventory_data:
-    name: inventory_volume
-  notification_data:
-    name: notification_volume
+# Volumenes comentados para evitar errores cuando Docker Desktop no tiene habilitado el acceso a discos compartidos
+# Esto elimina la persistencia de datos en el host y hace que la base se borre al borrar los contenedores.
+# volumes:
+#   inventory_data:
+#     name: inventory_volume
+#   notification_data:
+#     name: notification_volume
 
 
 networks:
   demo_network:
     name: demo_network
+    driver: bridge
+  kinetic_network:
+    name: kinetic_network
     driver: bridge
