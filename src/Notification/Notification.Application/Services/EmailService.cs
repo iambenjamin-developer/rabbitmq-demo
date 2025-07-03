@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Options;
 using Notification.Application.Interfaces;
 using Notification.Application.Settings;
 
@@ -8,18 +8,9 @@ namespace Notification.Application.Services
     {
         private readonly EmailSettings _settings;
 
-        public EmailService(IConfiguration configuration)
+        public EmailService(IOptions<EmailSettings> emailSettings)
         {
-            _settings = new EmailSettings
-            {
-                SmtpServer = configuration["EmailSettings:SmtpServer"],
-                Port = int.Parse(configuration["EmailSettings:Port"] ?? "587"),
-                SenderName = configuration["EmailSettings:SenderName"],
-                SenderEmail = configuration["EmailSettings:SenderEmail"],
-                To = configuration["EmailSettings:To"],
-                Username = configuration["EmailSettings:Username"],
-                Password = configuration["EmailSettings:Password"]
-            };
+            _settings = emailSettings.Value;
         }
 
         public async Task SendEmailAsync(string subject, string bodyHtml)

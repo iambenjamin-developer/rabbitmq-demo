@@ -25,11 +25,13 @@ services:
       - "5007:443"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=${INVENTORY_CONNECTION_STRING}
       - RabbitMQ__Host=rabbitmq
       - RabbitMQ__Username=${RABBIT_USER}
       - RabbitMQ__Password=${RABBIT_PASS}
     depends_on:
       - rabbitmq
+      - inventory-db
     networks:
       - demo_network
     restart: always
@@ -41,11 +43,44 @@ services:
     container_name: notification-worker
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=${NOTIFICATION_CONNECTION_STRING}
       - RabbitMQ__Host=rabbitmq
       - RabbitMQ__Username=${RABBIT_USER}
       - RabbitMQ__Password=${RABBIT_PASS}
+      - EmailSettings__SmtpServer=${EMAIL_SMTP_SERVER}
+      - EmailSettings__Port=${EMAIL_PORT}
+      - EmailSettings__SenderName=${EMAIL_SENDER_NAME}
+      - EmailSettings__SenderEmail=${EMAIL_SENDER_EMAIL}
+      - EmailSettings__To=${EMAIL_TO}
+      - EmailSettings__Username=${EMAIL_USERNAME}
+      - EmailSettings__Password=${EMAIL_PASSWORD}
     depends_on:
       - rabbitmq
+      - notification-db
+    networks:
+      - demo_network
+    restart: always
+
+  inventory-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: inventory-db
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=YourStrong@Passw0rd
+    ports:
+      - "1433:1433"
+    networks:
+      - demo_network
+    restart: always
+
+  notification-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: notification-db
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=YourStrong@Passw0rd
+    ports:
+      - "1434:1433"
     networks:
       - demo_network
     restart: always
