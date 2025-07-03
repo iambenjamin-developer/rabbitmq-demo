@@ -78,7 +78,7 @@ services:
     # volumes:
     #   - inventory_data:/var/lib/postgresql/data
     networks:
-      - kinetic_network
+      - demo_network
     restart: always
 
 
@@ -95,7 +95,7 @@ services:
     # volumes:
     #   - notification_data:/var/lib/postgresql/data
     networks:
-      - kinetic_network
+      - demo_network
     restart: always
 
 
@@ -111,7 +111,4 @@ services:
 networks:
   demo_network:
     name: demo_network
-    driver: bridge
-  kinetic_network:
-    name: kinetic_network
     driver: bridge
