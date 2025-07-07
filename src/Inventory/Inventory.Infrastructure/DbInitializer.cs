@@ -7,17 +7,18 @@ namespace Inventory.Infrastructure
     {
         public static async Task SeedDataAsync(InventoryDbContext context)
         {
-            // Migraciones pendientes
+            // Aplicar migraciones pendientes
             await context.Database.MigrateAsync();
 
             if (!context.Categories.Any())
             {
                 var categories = new List<Category>
                 {
-                    new Category { Name = "Electrónica" },
-                    new Category { Name = "Libros" },
-                    new Category { Name = "Alimentos" },
-                    new Category { Name = "Error simulado" }
+                    new Category { Name = "Alimentos", IsActive = true , CreatedAt = DateTime.UtcNow },
+                    new Category { Name = "Bebidas", IsActive = true , CreatedAt = DateTime.UtcNow },
+                    new Category { Name = "Limpieza", IsActive = true , CreatedAt = DateTime.UtcNow },
+                    new Category { Name = "Higiene personal", IsActive = true , CreatedAt = DateTime.UtcNow },
+                    new Category { Name = "Congelados", IsActive = true , CreatedAt = DateTime.UtcNow },
                 };
 
                 context.Categories.AddRange(categories);
@@ -28,51 +29,78 @@ namespace Inventory.Infrastructure
             {
                 var categories = await context.Categories.ToListAsync();
 
-                long electronicIdCategory = categories.FirstOrDefault(c => c.Name == "Electrónica")?.Id ?? 0;
-                long bookIdCategory = categories.FirstOrDefault(c => c.Name == "Libros")?.Id ?? 0;
-                long groceriesIdCategory = categories.FirstOrDefault(c => c.Name == "Alimentos")?.Id ?? 0;
+                long alimentosId = categories.First(c => c.Name == "Alimentos").Id;
+                long bebidasId = categories.First(c => c.Name == "Bebidas").Id;
+                long limpiezaId = categories.First(c => c.Name == "Limpieza").Id;
+                long higieneId = categories.First(c => c.Name == "Higiene personal").Id;
+                long congeladosId = categories.First(c => c.Name == "Congelados").Id;
 
                 var products = new List<Product>
                 {
                     new Product
                     {
-                        Name = "Mouse Inalámbrico",
-                        Description = "Mouse ergonómico inalámbrico con receptor USB",
-                        Price = 29.99m,
-                        Stock = 50,
-                        CategoryId = electronicIdCategory
+                        SKU = "ALM-001",
+                        Name = "Arroz Largo Fino 1kg",
+                        Description = "Arroz blanco de grano largo, ideal para guarniciones.",
+                        Price = 259.90m,
+                        Stock = 120,
+                        Rating = 4.5,
+                        ImageUrl = "https://supermercadostore.blob.core.windows.net/product-images/arroz-largo-fino.jpg",
+                        CreatedAt = DateTime.UtcNow,
+                        IsActive = true,
+                        CategoryId = alimentosId
                     },
                     new Product
                     {
-                        Name = "Auriculares Bluetooth",
-                        Description = "Auriculares de diadema con cancelación de ruido",
-                        Price = 89.99m,
-                        Stock = 25,
-                        CategoryId = electronicIdCategory
-                    },
-                    new Product
-                    {
-                        Name = "The Clean Coder",
-                        Description = "Código de conducta para programadores profesionales",
-                        Price = 39.50m,
-                        Stock = 15,
-                        CategoryId = bookIdCategory
-                    },
-                    new Product
-                    {
-                        Name = "Aceite de Oliva 1L",
-                        Description = "Aceite de oliva virgen extra, prensado en frío",
-                        Price = 10.25m,
-                        Stock = 80,
-                        CategoryId = groceriesIdCategory
-                    },
-                    new Product
-                    {
-                        Name = "Pasta Spaghetti 500g",
-                        Description = "Pasta de trigo duro",
-                        Price = 2.30m,
+                        SKU = "BEB-002",
+                        Name = "Coca-Cola 1.5L",
+                        Description = "Bebida gaseosa sabor cola en botella PET de 1.5 litros.",
+                        Price = 899.00m,
                         Stock = 200,
-                        CategoryId = groceriesIdCategory
+                        Rating = 4.8,
+                        ImageUrl = "https://supermercadostore.blob.core.windows.net/product-images/coca-cola-1-5l.jpg",
+                        CreatedAt = DateTime.UtcNow,
+                        IsActive = true,
+                        CategoryId = bebidasId
+                    },
+                    new Product
+                    {
+                        SKU = "LIM-003",
+                        Name = "Lavandina Ayudín 1L",
+                        Description = "Desinfectante multipropósito con cloro activo.",
+                        Price = 320.00m,
+                        Stock = 80,
+                        Rating = 4.2,
+                        ImageUrl = "https://supermercadostore.blob.core.windows.net/product-images/ayudin-lavandina.jpg",
+                        CreatedAt = DateTime.UtcNow,
+                        IsActive = true,
+                        CategoryId = limpiezaId
+                    },
+                    new Product
+                    {
+                        SKU = "HIG-004",
+                        Name = "Pasta Dental Colgate Triple Acción 90g",
+                        Description = "Pasta dental con flúor para limpieza, protección y frescura.",
+                        Price = 510.00m,
+                        Stock = 95,
+                        Rating = 4.6,
+                        ImageUrl = "https://supermercadostore.blob.core.windows.net/product-images/colgate-triple-accion.jpg",
+                        CreatedAt = DateTime.UtcNow,
+                        IsActive = true,
+                        CategoryId = higieneId
+                    },
+                    new Product
+                    {
+                        SKU = "CON-005",
+                        Name = "Hamburguesas Congeladas Paty x4",
+                        Description = "Hamburguesas de carne vacuna congeladas, pack de 4 unidades.",
+                        Price = 1050.00m,
+                        Stock = 50,
+                        Rating = 4.4,
+                        ImageUrl = "https://supermercadostore.blob.core.windows.net/product-images/paty-x4.jpg",
+                        CreatedAt = DateTime.UtcNow,
+                        IsActive = true,
+                        CategoryId = congeladosId
                     }
                 };
 

@@ -23,20 +23,45 @@ namespace Inventory.Infrastructure
                 entity.HasKey(p => p.Id);
 
                 entity.Property(p => p.Id)
-                      .ValueGeneratedOnAdd(); // ← CLAVE: marca el ID como autogenerado por la DB
+                      .ValueGeneratedOnAdd();
+
+                entity.HasIndex(p => p.SKU)
+                      .IsUnique();
+
+                entity.Property(p => p.SKU)
+                      .IsRequired()
+                      .HasMaxLength(50);
+
+                entity.Property(p => p.Name)
+                      .IsRequired()
+                      .HasMaxLength(100);
+
+                entity.Property(p => p.Description)
+                      .HasMaxLength(500);
+
+                entity.Property(p => p.Price)
+                      .HasColumnType("decimal(18,2)");
+
+                entity.Property(p => p.ImageUrl)
+                      .HasMaxLength(200);
 
                 entity.HasOne(p => p.Category)
                       .WithMany(c => c.Products)
-                      .HasForeignKey(p => p.CategoryId);
+                      .HasForeignKey(p => p.CategoryId)
+                      .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // Category configuration (si también es autoincremental)
+            // Category configuration
             modelBuilder.Entity<Category>(entity =>
             {
                 entity.HasKey(c => c.Id);
 
                 entity.Property(c => c.Id)
                       .ValueGeneratedOnAdd();
+
+                entity.Property(c => c.Name)
+                      .IsRequired()
+                      .HasMaxLength(100);
             });
 
         }
