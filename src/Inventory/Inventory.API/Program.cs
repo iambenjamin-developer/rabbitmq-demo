@@ -1,4 +1,5 @@
-﻿using Inventory.Infrastructure;
+﻿using Inventory.Application;
+using Inventory.Infrastructure;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using RabbitMQ.Client;
@@ -18,6 +19,7 @@ namespace Inventory.API
                 options.UseNpgsql(connectionString));
 
             // Add services to the container.
+            builder.Services.AddApplicationServices(builder.Configuration);
 
             // MassTransit + RabbitMQ
             builder.Services.AddMassTransit(x =>

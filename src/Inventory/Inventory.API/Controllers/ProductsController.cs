@@ -1,4 +1,7 @@
-﻿using MassTransit;
+﻿using Application.DTOs.Products;
+using Inventory.Application.DTOs.Products;
+using Inventory.Application.Interfaces;
+using MassTransit;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Contracts.Events;
 
@@ -8,60 +11,136 @@ namespace Inventory.API.Controllers
     [ApiController]
     public class ProductsController : ControllerBase
     {
+        private readonly IProductService _productService;
         private readonly IPublishEndpoint _publishEndpoint;
 
-        public ProductsController(IPublishEndpoint publishEndpoint)
+        public ProductsController(IProductService productService, IPublishEndpoint publishEndpoint)
         {
+            _productService = productService;
             _publishEndpoint = publishEndpoint;
         }
 
+        [HttpGet]
+        [ProducesResponseType(typeof(IEnumerable<ProductDto>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<IEnumerable<ProductDto>>> GetAll()
+        {
+            var dtos = await _productService.GetAllAsync();
+            return Ok(dtos);
+        }
+
+        [HttpGet("{id:long}")]
+        [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<ProductDto>> GetById(long id)
+        {
+            var dto = await _productService.GetByIdAsync(id);
+            if (dto == null)
+                return NotFound($"Producto con Id: {id} no encontrado");
+
+            return Ok(dto);
+        }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] bool throwError = false)
+        [ProducesResponseType(typeof(ProductDto), StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ProductDto>> Create([FromBody] CreateProductDto dto)
         {
-            var category = throwError ? "Error simulado" : "Libros";
-            var eventMessage = new ProductCreated
-                (
-                Id: 7,
-                Name: "El Arte de la Guerra",
-                Description: "Tratado estratégico con aplicaciones modernas en negocios",
-                Price: 12.75m,
-                Stock: 8,
-                Category: category
+            try
+            {
+                var newProductDto = await _productService.CreateAsync(dto);
+
+                // Publicar evento
+                var eventMessage = new ProductCreated(
+                    Id: newProductDto.Id,
+                    Name: newProductDto.Name,
+                    Description: newProductDto.Description,
+                    Price: newProductDto.Price,
+                    Stock: newProductDto.Stock,
+                    Category: newProductDto.Category.Name
                 );
 
-            await _publishEndpoint.Publish(eventMessage, context =>
+                await _publishEndpoint.Publish(eventMessage, context =>
+                {
+                    context.SetRoutingKey("product.created");
+                });
+
+                return CreatedAtAction(nameof(GetById), new { id = newProductDto.Id }, newProductDto);
+            }
+            catch (InvalidOperationException ex)
             {
-                context.SetRoutingKey("product.created");
-            });
-
-            return Ok();
+                return BadRequest(ex.Message);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error inesperado: {ex.Message}");
+            }
         }
-
 
         [HttpPut("{id:long}")]
-        public async Task<IActionResult> Update(long id)
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> Update(long id, [FromBody] UpdateProductDto dto)
         {
-            var eventMessage = new ProductUpdated(id, "Sapiens: De animales a dioses", 10);
-
-            await _publishEndpoint.Publish(eventMessage, context =>
+            try
             {
-                context.SetRoutingKey("product.updated");
-            });
+                bool isUpdated = await _productService.UpdateAsync(id, dto);
+                if (!isUpdated)
+                    return NotFound($"Producto con Id: {id} no encontrado");
 
-            return Ok();
+                // Publicar evento
+                var eventMessage = new ProductUpdated(id, dto.Name, dto.Stock);
+                await _publishEndpoint.Publish(eventMessage, context =>
+                {
+                    context.SetRoutingKey("product.updated");
+                });
+
+                return NoContent();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error inesperado: {ex.Message}");
+            }
         }
 
-
         [HttpDelete("{id:long}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> Delete(long id)
         {
-            await _publishEndpoint.Publish(new ProductDeleted(id), context =>
+            try
             {
-                context.SetRoutingKey("product.deleted");
-            });
+                var isDeleted = await _productService.DeleteAsync(id);
+                if (!isDeleted)
+                    return NotFound($"Producto con Id: {id} no encontrado");
 
-            return Ok();
+                // Publicar evento
+                await _publishEndpoint.Publish(new ProductDeleted(id), context =>
+                {
+                    context.SetRoutingKey("product.deleted");
+                });
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error inesperado: {ex.Message}");
+            }
         }
     }
 }
