@@ -72,7 +72,6 @@ namespace Inventory.Infrastructure.Migrations
                         .HasColumnType("character varying(500)");
 
                     b.Property<string>("ImageUrl")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 

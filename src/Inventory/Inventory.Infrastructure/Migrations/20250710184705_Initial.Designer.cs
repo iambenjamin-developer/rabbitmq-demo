@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Inventory.Infrastructure.Migrations
 {
     [DbContext(typeof(InventoryDbContext))]
-    [Migration("20250710174809_Initial")]
+    [Migration("20250710184705_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -75,7 +75,6 @@ namespace Inventory.Infrastructure.Migrations
                         .HasColumnType("character varying(500)");
 
                     b.Property<string>("ImageUrl")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
