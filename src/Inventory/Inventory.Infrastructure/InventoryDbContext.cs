@@ -1,4 +1,5 @@
-﻿using Inventory.Domain.Entities;
+﻿using Inventory.Domain.Common;
+using Inventory.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Inventory.Infrastructure
@@ -59,11 +60,46 @@ namespace Inventory.Infrastructure
                 entity.Property(c => c.Id)
                       .ValueGeneratedOnAdd();
 
+                entity.HasIndex(p => p.Name)
+                      .IsUnique();
+
                 entity.Property(c => c.Name)
                       .IsRequired()
                       .HasMaxLength(100);
             });
-
         }
+
+        public override int SaveChanges()
+        {
+            ApplyBaseEntityRules();
+            return base.SaveChanges();
+        }
+
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            ApplyBaseEntityRules();
+            return base.SaveChangesAsync(cancellationToken);
+        }
+
+        private void ApplyBaseEntityRules()
+        {
+            var entries = ChangeTracker.Entries<BaseEntity>();
+
+            foreach (var entry in entries)
+            {
+                switch (entry.State)
+                {
+                    case EntityState.Added:
+                        entry.Entity.CreatedAt = DateTime.UtcNow;
+                        entry.Entity.IsActive = true;
+                        break;
+
+                    case EntityState.Modified:
+                        entry.Entity.UpdatedAt = DateTime.UtcNow;
+                        break;
+                }
+            }
+        }
+
     }
 }
