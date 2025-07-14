@@ -1,9 +1,9 @@
-﻿using System.Text.Json;
-using MassTransit;
+﻿using MassTransit;
 using Notification.Application.Interfaces;
 using Notification.Domain.Entities;
 using Notification.Infrastructure;
 using Shared.Contracts.Events;
+using System.Text.Json;
 
 namespace Notification.Worker.Consumers
 {
@@ -23,7 +23,7 @@ namespace Notification.Worker.Consumers
         public async Task Consume(ConsumeContext<ProductCreated> context)
         {
             var retryAttempt = context.GetRetryAttempt();
-            if (context.Message.Category == "Error simulado") // Simular fallos en los primeros 3 intentos
+            if (context.Message.Category == "Error") // Simular fallos en los primeros 3 intentos
             {
                 _logger.LogWarning($"=== Intento #{retryAttempt} de procesar el Product {context.Message.Name} ===");
                 throw new Exception("=== Fallo simulado para probar reintentos ===");
