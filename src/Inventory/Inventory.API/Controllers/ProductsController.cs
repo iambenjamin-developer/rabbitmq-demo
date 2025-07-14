@@ -1,8 +1,9 @@
 ﻿using Application.DTOs.Products;
 using Inventory.Application.DTOs.Products;
 using Inventory.Application.Interfaces;
-using MassTransit;
 using Microsoft.AspNetCore.Mvc;
+using Polly.CircuitBreaker;
+using Polly.Timeout;
 using Shared.Contracts.Events;
 
 namespace Inventory.API.Controllers
@@ -12,94 +13,79 @@ namespace Inventory.API.Controllers
     public class ProductsController : ControllerBase
     {
         private readonly IProductService _productService;
-        private readonly IPublishEndpoint _publishEndpoint;
+        private readonly IResilientMessagePublisher _resilientMessagePublisher;
 
-        public ProductsController(IProductService productService, IPublishEndpoint publishEndpoint)
+        public ProductsController(IProductService productService, IResilientMessagePublisher resilientMessagePublisher)
         {
             _productService = productService;
-            _publishEndpoint = publishEndpoint;
+            _resilientMessagePublisher = resilientMessagePublisher;
         }
 
         /// <summary>
         /// Obtiene la lista de todos los productos disponibles.
         /// </summary>
         /// <remarks>
-        /// Devuelve todos los productos registrados en el sistema, ordenados por fecha de creación (más recientes primero).
+        /// Devuelve todos los productos registrados en el sistema.
         /// </remarks>
         /// <response code="200">Lista de productos obtenida correctamente.</response>
-        /// <response code="500">Error inesperado en el servidor.</response>
         [HttpGet]
         [ProducesResponseType(typeof(IEnumerable<ProductDto>), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<IEnumerable<ProductDto>>> GetAll()
         {
-            try
-            {
-                var result = await _productService.GetAllAsync();
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Error inesperado al obtener productos: {ex.Message}");
-            }
+            var dtos = await _productService.GetAllAsync();
+            return Ok(dtos);
         }
 
         /// <summary>
-        /// Obtiene los detalles de un producto específico por su ID.
+        /// Obtiene los detalles de un producto específico.
         /// </summary>
-        /// <param name="id">ID del producto a consultar.</param>
+        /// <param name="id">ID del producto.</param>
         /// <remarks>
-        /// Devuelve el producto que coincide con el ID proporcionado, incluyendo información de su categoría.
+        /// Devuelve el producto que coincide con el ID proporcionado.
         /// </remarks>
-        /// <response code="200">Producto encontrado correctamente.</response>
+        /// <response code="200">Producto encontrado.</response>
         /// <response code="404">Producto no encontrado.</response>
-        /// <response code="500">Error inesperado en el servidor.</response>
         [HttpGet("{id:long}")]
         [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ProductDto>> GetById(long id)
         {
-            try
-            {
-                var result = await _productService.GetByIdAsync(id);
-                if (result == null)
-                {
-                    return NotFound($"Producto con ID '{id}' no encontrado");
-                }
+            var dto = await _productService.GetByIdAsync(id);
+            if (dto == null)
+                return NotFound($"Producto con Id: {id} no encontrado");
 
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Error inesperado al obtener el producto: {ex.Message}");
-            }
+            return Ok(dto);
         }
 
         /// <summary>
-        /// Crea un nuevo producto en el sistema.
+        /// Crea un nuevo producto.
         /// </summary>
-        /// <param name="body">Datos del producto a crear.</param>
+        /// <param name="dto">Datos del producto a crear.</param>
         /// <remarks>
-        /// Crea un nuevo producto en la base de datos. El sistema valida automáticamente:
-        /// - Que el SKU sea único en el sistema
-        /// - Que la categoría especificada exista
+        /// Crea un producto en la base de datos y publica un evento <b>ProductCreated</b> mediante RabbitMQ.<br/>
+        /// <b>Resiliencia:</b> Si RabbitMQ no está disponible (timeout o circuito abierto), el mensaje se guarda como pendiente en la base de datos y el endpoint responde con el código correspondiente.<br/>
+        /// <ul>
+        /// <li><b>201:</b> Producto creado y evento publicado exitosamente.</li>
+        /// <li><b>504:</b> Timeout al publicar el evento. El mensaje se guardó como pendiente y se procesará automáticamente cuando RabbitMQ esté disponible.</li>
+        /// <li><b>503:</b> Circuito abierto (RabbitMQ caído). El mensaje se guardó como pendiente y se procesará automáticamente cuando RabbitMQ esté disponible.</li>
+        /// <li><b>500:</b> Error inesperado.</li>
+        /// </ul>
         /// </remarks>
         /// <response code="201">Producto creado correctamente.</response>
-        /// <response code="400">Datos inválidos o validaciones fallidas (SKU duplicado, categoría inexistente).</response>
-        /// <response code="500">Error inesperado en el servidor.</response>
+        /// <response code="504">Tiempo de espera agotado al publicar el evento (mensaje guardado como pendiente).</response>
+        /// <response code="503">Circuito abierto - RabbitMQ no disponible (mensaje guardado como pendiente).</response>
+        /// <response code="500">Error inesperado.</response>
         [HttpPost]
         [ProducesResponseType(typeof(ProductDto), StatusCodes.Status201Created)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status504GatewayTimeout)]
+        [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<ProductDto>> Create([FromBody] CreateProductDto body)
+        public async Task<ActionResult<ProductDto>> Create([FromBody] CreateProductDto dto)
         {
             try
             {
-                var newProductDto = await _productService.CreateAsync(body);
+                var newProductDto = await _productService.CreateAsync(dto);
 
-
-                // Publicar evento
                 var eventMessage = new ProductCreated(
                     Id: newProductDto.Id,
                     Name: newProductDto.Name,
@@ -109,100 +95,104 @@ namespace Inventory.API.Controllers
                     Category: newProductDto.Category.Name
                 );
 
-                await _publishEndpoint.Publish(eventMessage, context =>
-                {
-                    context.SetRoutingKey("product.created");
-                });
+                await _resilientMessagePublisher.PublishWithResilienceAsync(eventMessage, "product.created");
 
                 return CreatedAtAction(nameof(GetById), new { id = newProductDto.Id }, newProductDto);
             }
-            catch (InvalidOperationException ex)
+            catch (TimeoutRejectedException)
             {
-                return BadRequest($"Error de validación: {ex.Message}");
+                return StatusCode(504, "⏳ Tiempo de espera agotado al publicar el evento. El mensaje se guardó como pendiente y se procesará cuando el servicio esté disponible.");
             }
-            catch (ArgumentException ex)
+            catch (BrokenCircuitException)
             {
-                return BadRequest($"Datos inválidos: {ex.Message}");
+                return StatusCode(503, "⛔ Circuito abierto - el servicio de mensajería no está disponible. El mensaje se guardó como pendiente y se procesará cuando el servicio esté disponible.");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error inesperado al crear el producto: {ex.Message}");
+                return StatusCode(500, $"💥 Error inesperado: {ex.Message}");
             }
         }
 
         /// <summary>
-        /// Actualiza un producto existente en el sistema.
+        /// Actualiza un producto existente.
         /// </summary>
         /// <param name="id">ID del producto a actualizar.</param>
-        /// <param name="body">Datos actualizados del producto.</param>
+        /// <param name="dto">Datos actualizados del producto.</param>
         /// <remarks>
-        /// Actualiza la información del producto existente. El sistema valida automáticamente:
-        /// - Que el SKU sea único en el sistema (permitiendo el SKU actual del producto)
-        /// - Que la categoría especificada exista
-        /// - Que el ID en la ruta coincida con el ID en el cuerpo de la petición
+        /// Actualiza la información del producto y publica un evento <b>ProductUpdated</b>.<br/>
+        /// <b>Resiliencia:</b> Si RabbitMQ no está disponible (timeout o circuito abierto), el mensaje se guarda como pendiente y el endpoint responde con el código correspondiente.<br/>
+        /// <ul>
+        /// <li><b>204:</b> Actualización exitosa y evento publicado.</li>
+        /// <li><b>504:</b> Timeout al publicar el evento. El mensaje se guardó como pendiente y se procesará automáticamente.</li>
+        /// <li><b>503:</b> Circuito abierto. El mensaje se guardó como pendiente y se procesará automáticamente.</li>
+        /// <li><b>404:</b> Producto no encontrado.</li>
+        /// <li><b>500:</b> Error inesperado.</li>
+        /// </ul>
         /// </remarks>
-        /// <response code="204">Producto actualizado correctamente.</response>
-        /// <response code="400">Datos inválidos o validaciones fallidas (SKU duplicado, categoría inexistente, IDs no coinciden).</response>
+        /// <response code="204">Actualización exitosa.</response>
         /// <response code="404">Producto no encontrado.</response>
-        /// <response code="500">Error inesperado en el servidor.</response>
+        /// <response code="504">Timeout al publicar el evento (mensaje guardado como pendiente).</response>
+        /// <response code="503">Circuito abierto (mensaje guardado como pendiente).</response>
+        /// <response code="500">Error inesperado.</response>
         [HttpPut("{id:long}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status504GatewayTimeout)]
+        [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> Update(long id, [FromBody] UpdateProductDto body)
+        public async Task<IActionResult> Update(long id, [FromBody] UpdateProductDto dto)
         {
             try
             {
-                if (id != body.Id)
-                {
-                    return BadRequest("El ID en la ruta debe coincidir con el ID en el cuerpo de la petición");
-                }
-
-                bool isUpdated = await _productService.UpdateAsync(id, body);
+                bool isUpdated = await _productService.UpdateAsync(id, dto);
                 if (!isUpdated)
-                {
-                    return NotFound($"Producto con ID '{id}' no encontrado");
-                }
+                    return NotFound($"Producto con Id: {id} no encontrado");
 
+                var eventMessage = new ProductUpdated(id, dto.Name, dto.Stock);
 
-                // Publicar evento
-                var eventMessage = new ProductUpdated(id, body.Name, body.Stock);
-                await _publishEndpoint.Publish(eventMessage, context =>
-                {
-                    context.SetRoutingKey("product.updated");
-                });
+                await _resilientMessagePublisher.PublishWithResilienceAsync(eventMessage, "product.updated");
 
                 return NoContent();
             }
-            catch (InvalidOperationException ex)
+            catch (TimeoutRejectedException)
             {
-                return BadRequest($"Error de validación: {ex.Message}");
+                return StatusCode(504, "⏳ Tiempo de espera agotado al publicar el evento. El mensaje se guardó como pendiente y se procesará cuando el servicio esté disponible.");
             }
-            catch (ArgumentException ex)
+            catch (BrokenCircuitException)
             {
-                return BadRequest($"Datos inválidos: {ex.Message}");
+                return StatusCode(503, "⛔ Circuito abierto - el servicio de mensajería no está disponible. El mensaje se guardó como pendiente y se procesará cuando el servicio esté disponible.");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error inesperado al actualizar el producto: {ex.Message}");
+                return StatusCode(500, $"💥 Error inesperado: {ex.Message}");
             }
         }
 
         /// <summary>
-        /// Elimina un producto del sistema por su ID.
+        /// Elimina un producto por su ID.
         /// </summary>
         /// <param name="id">ID del producto a eliminar.</param>
         /// <remarks>
-        /// Elimina permanentemente el producto de la base de datos.
-        /// Esta operación no se puede deshacer.
+        /// Elimina el producto de la base de datos y publica un evento <b>ProductDeleted</b>.<br/>
+        /// <b>Resiliencia:</b> Si RabbitMQ no está disponible (timeout o circuito abierto), el mensaje se guarda como pendiente y el endpoint responde con el código correspondiente.<br/>
+        /// <ul>
+        /// <li><b>204:</b> Eliminación exitosa y evento publicado.</li>
+        /// <li><b>504:</b> Timeout al publicar el evento. El mensaje se guardó como pendiente y se procesará automáticamente.</li>
+        /// <li><b>503:</b> Circuito abierto. El mensaje se guardó como pendiente y se procesará automáticamente.</li>
+        /// <li><b>404:</b> Producto no encontrado.</li>
+        /// <li><b>500:</b> Error inesperado.</li>
+        /// </ul>
         /// </remarks>
-        /// <response code="204">Producto eliminado correctamente.</response>
+        /// <response code="204">Eliminación exitosa.</response>
         /// <response code="404">Producto no encontrado.</response>
-        /// <response code="500">Error inesperado en el servidor.</response>
+        /// <response code="504">Timeout al publicar el evento (mensaje guardado como pendiente).</response>
+        /// <response code="503">Circuito abierto (mensaje guardado como pendiente).</response>
+        /// <response code="500">Error inesperado.</response>
         [HttpDelete("{id:long}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status504GatewayTimeout)]
+        [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> Delete(long id)
         {
@@ -210,22 +200,25 @@ namespace Inventory.API.Controllers
             {
                 var isDeleted = await _productService.DeleteAsync(id);
                 if (!isDeleted)
-                {
-                    return NotFound($"Producto con ID '{id}' no encontrado");
-                }
+                    return NotFound($"Producto con Id: {id} no encontrado");
 
-                // Publicar evento
-                await _publishEndpoint.Publish(new ProductDeleted(id), context =>
-                {
-                    context.SetRoutingKey("product.deleted");
-                });
+                var eventMessage = new ProductDeleted(id);
 
+                await _resilientMessagePublisher.PublishWithResilienceAsync(eventMessage, "product.deleted");
 
                 return NoContent();
             }
+            catch (TimeoutRejectedException)
+            {
+                return StatusCode(504, "⏳ Tiempo de espera agotado al publicar el evento. El mensaje se guardó como pendiente y se procesará cuando el servicio esté disponible.");
+            }
+            catch (BrokenCircuitException)
+            {
+                return StatusCode(503, "⛔ Circuito abierto - el servicio de mensajería no está disponible. El mensaje se guardó como pendiente y se procesará cuando el servicio esté disponible.");
+            }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error inesperado al eliminar el producto: {ex.Message}");
+                return StatusCode(500, $"💥 Error inesperado: {ex.Message}");
             }
         }
     }

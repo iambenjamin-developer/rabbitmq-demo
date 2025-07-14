@@ -17,6 +17,13 @@ namespace Inventory.Application
             services.AddScoped<IProductService, ProductService>();
             services.AddScoped<ICategoryService, CategoryService>();
 
+            // Add Pending Message Services
+            services.AddScoped<IPendingMessageService, PendingMessageService>();
+            services.AddScoped<IResilientMessagePublisher, ResilientMessagePublisher>();
+
+            // Add Background Service for processing pending messages
+            services.AddHostedService<PendingMessageProcessorService>();
+
             return services;
         }
     }
