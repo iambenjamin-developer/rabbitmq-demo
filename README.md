@@ -144,7 +144,7 @@ graph LR
 
 ## Endpoints de la API
 
-[http://localhost:5000/swagger/index.html](http://localhost:5000/swagger/index.html)
+[http://localhost:5006/swagger/index.html](http://localhost:5006/swagger/index.html)
 
 ### Endpoints Principales
 
