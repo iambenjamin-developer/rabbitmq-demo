@@ -14,6 +14,9 @@ namespace Inventory.Infrastructure
         public DbSet<Product> Products { get; set; }
         public DbSet<Category> Categories { get; set; }
 
+
+        public DbSet<PendingMessage> PendingMessages { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -66,6 +69,35 @@ namespace Inventory.Infrastructure
                 entity.Property(c => c.Name)
                       .IsRequired()
                       .HasMaxLength(100);
+            });
+
+            // PendingMessage configuration
+            modelBuilder.Entity<PendingMessage>(entity =>
+            {
+                entity.HasKey(p => p.Id);
+
+                entity.Property(p => p.Id)
+                      .ValueGeneratedOnAdd();
+
+                entity.Property(p => p.EventType)
+                      .IsRequired()
+                      .HasMaxLength(100);
+
+                entity.Property(p => p.RoutingKey)
+                      .IsRequired()
+                      .HasMaxLength(100);
+
+                entity.Property(p => p.Payload)
+                      .IsRequired();
+
+                entity.Property(p => p.CreatedAt)
+                      .IsRequired();
+
+                entity.Property(p => p.RetryCount)
+                      .HasDefaultValue(0);
+
+                entity.Property(p => p.IsProcessed)
+                      .HasDefaultValue(false);
             });
         }
 
