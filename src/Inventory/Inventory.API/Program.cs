@@ -1,7 +1,10 @@
-﻿using Inventory.Application;
+﻿using Inventory.API.Policies;
+using Inventory.Application;
+using Inventory.Application.Interfaces;
 using Inventory.Infrastructure;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Polly;
 using RabbitMQ.Client;
 using Shared.Contracts.Events;
 
@@ -61,6 +64,22 @@ namespace Inventory.API
 
                     // NO usar ConfigureEndpoints ya que esta API no consume mensajes
                 });
+            });
+
+            // Registrar políticas resilientes (Timeout + CircuitBreaker) y adaptador personalizado
+            builder.Services.AddSingleton<IResiliencePolicy>(provider =>
+            {
+                // Timeout: 10 segundos
+                var timeout = Policy.TimeoutAsync(TimeSpan.FromSeconds(10));
+
+                // Circuit Breaker: 2 fallos antes de abrir, durante 8 segundos
+                var circuitBreaker = Policy
+                    .Handle<Exception>()
+                    .CircuitBreakerAsync(2, TimeSpan.FromSeconds(8));
+
+                // Unificamos ambas
+                var combined = Policy.WrapAsync(circuitBreaker, timeout);
+                return new ResiliencePolicy(combined);
             });
 
             builder.Services.AddControllers();
