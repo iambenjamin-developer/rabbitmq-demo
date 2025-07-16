@@ -173,21 +173,6 @@ graph LR
 5. Si el mensaje se publica exitosamente, se marca como procesado.
 6. Si un mensaje excede 5 reintentos, se deja de intentar y se registra el error.
 
-## Endpoints de la API
-
-[http://localhost:5006/swagger/index.html](http://localhost:5006/swagger/index.html)
-
-### Endpoints Principales
-
-#### **Productos**
-- `GET /api/products` - Obtener todos los productos
-- `GET /api/products/{id}` - Obtener producto por ID
-- `POST /api/products` - Crear nuevo producto (publica evento resiliente)
-- `PUT /api/products/{id}` - Actualizar producto (publica evento resiliente)
-- `DELETE /api/products/{id}` - Eliminar producto (publica evento resiliente)
-
-#### **Categorías**
-- `GET /api/categories` - Obtener todas las categorías
 
 ## Características Técnicas
 
