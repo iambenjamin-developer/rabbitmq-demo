@@ -1,4 +1,6 @@
 services:
+
+
   rabbitmq:
     image: masstransit/rabbitmq
     container_name: rabbitmq
@@ -13,6 +15,7 @@ services:
       - demo_network
     restart: always
 
+
   inventory-api:
     build:
       context: .
@@ -23,14 +26,17 @@ services:
       - "5007:443"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=${INVENTORY_CONNECTION_STRING}
       - RabbitMQ__Host=rabbitmq
       - RabbitMQ__Username=${RABBIT_USER}
       - RabbitMQ__Password=${RABBIT_PASS}
     depends_on:
       - rabbitmq
+      - inventory-db
     networks:
       - demo_network
     restart: always
+
 
   notification-worker:
     build:
@@ -39,6 +45,7 @@ services:
     container_name: notification-worker
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=${NOTIFICATION_CONNECTION_STRING}
       - RabbitMQ__Host=rabbitmq
       - RabbitMQ__Username=${RABBIT_USER}
       - RabbitMQ__Password=${RABBIT_PASS}
@@ -51,9 +58,54 @@ services:
       - EmailSettings__Password=${EMAIL_PASSWORD}
     depends_on:
       - rabbitmq
+      - notification-db
     networks:
       - demo_network
     restart: always
+
+
+  inventory-db:
+    image: postgres:17.5-alpine
+    container_name: inventory-db
+    environment:
+      - POSTGRES_USER=${POSTGRES_INVENTORY_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_INVENTORY_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_INVENTORY_DB}
+    ports:
+      - "5432:5432"
+    # Volumen comentado para evitar errores de 'volume sharing is not enabled' en Docker Desktop
+    # Esto hace que los datos del contenedor NO se persistan en el host.
+    # volumes:
+    #   - inventory_data:/var/lib/postgresql/data
+    networks:
+      - demo_network
+    restart: always
+
+
+  notification-db:
+    image: postgres:17.5-alpine
+    container_name: notification-db
+    environment:
+      - POSTGRES_USER=${POSTGRES_NOTIFICATION_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_NOTIFICATION_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_NOTIFICATION_DB}
+    ports:
+      - "5433:5432"
+    # Volumen comentado por la misma razon que el anterior
+    # volumes:
+    #   - notification_data:/var/lib/postgresql/data
+    networks:
+      - demo_network
+    restart: always
+
+
+# Volumenes comentados para evitar errores cuando Docker Desktop no tiene habilitado el acceso a discos compartidos
+# Esto elimina la persistencia de datos en el host y hace que la base se borre al borrar los contenedores.
+# volumes:
+#   inventory_data:
+#     name: inventory_volume
+#   notification_data:
+#     name: notification_volume
 
 
 networks:

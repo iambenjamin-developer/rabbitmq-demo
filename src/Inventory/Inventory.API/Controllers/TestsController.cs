@@ -7,9 +7,15 @@ namespace Inventory.API.Controllers
     [ApiController]
     public class TestsController : ControllerBase
     {
-
-
+        /// <summary>
+        /// Obtiene información del sistema operativo y la fecha/hora actual en UTC.
+        /// </summary>
+        /// <remarks>
+        /// Devuelve información sobre el sistema operativo del host y la fecha/hora actual en formato UTC.
+        /// </remarks>
+        /// <response code="200">Información obtenida correctamente.</response>
         [HttpGet("DateTime")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
         public IActionResult Get()
         {
             var result = new
