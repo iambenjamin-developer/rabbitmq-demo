@@ -11,7 +11,7 @@ Este proyecto implementa una arquitectura resiliente de mensajería basada en Ra
 ### 1. Detener y eliminar recursos de Docker Compose
 
 ```
-docker-compose down --volumes --remove-orphans
+docker compose down --volumes --remove-orphans
 ```
 
 ### 2. Limpiar recursos de Docker no utilizados
@@ -27,13 +27,44 @@ docker system prune -a --volumes -f # Borra imágenes no usadas, contenedores de
 ### 3. Levantar el entorno con nuevo build
 
 ```
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 <!-- Diagrama de arquitectura https://www.blocksandarrows.com/ -->
 <p align="center">
   <img src="diagram.png" alt="Diagrama de arquitectura" />
 </p>
+
+
+## Endpoints de la API
+
+[http://localhost:5006/swagger/index.html](http://localhost:5006/swagger/index.html)
+
+
+## Pruebas con Postman
+
+### Descargar la Colección
+
+1. **Descargar la colección**: [RabbitMqDemo.postman_collection.json](RabbitMqDemo.postman_collection.json)
+2. **Importar en Postman**:
+   - Abrir Postman
+   - Hacer clic en "File" y luego "Import"
+   - Seleccionar el archivo `RabbitMqDemo.postman_collection.json`
+   - La colección se importará automáticamente
+
+### Endpoints Incluidos en la Colección
+
+#### **Productos**
+- `GET /api/products` - Obtener todos los productos
+- `GET /api/products/{id}` - Obtener producto por ID
+- `POST /api/products` - Crear nuevo producto
+- `PUT /api/products/{id}` - Actualizar producto
+- `DELETE /api/products/{id}` - Eliminar producto
+
+#### **Categorías**
+- `GET /api/categories` - Obtener todas las categorías
+
+---
 
 ## Arquitectura General de la Solución
 
@@ -199,64 +230,6 @@ Remove-Migration -Context NotificationDbContext
 ---
 
 
-## Arquitectura General de la Solución
-
-```mermaid
-graph TB
-    subgraph "Cliente"
-        Client[Cliente HTTP]
-    end
-    
-    subgraph "Inventory.API (Productor)"
-        API[API REST]
-        ProductService[ProductService]
-        ResilientPublisher[ResilientMessagePublisher]
-        PendingService[PendingMessageService]
-        BackgroundProcessor[Background Processor]
-    end
-    
-    subgraph "Shared Kernel"
-        Contracts[Event Contracts]
-        ProductCreated[ProductCreated]
-        ProductUpdated[ProductUpdated]
-        ProductDeleted[ProductDeleted]
-    end
-    
-    subgraph "Notification.Worker (Consumidor)"
-        Worker[Worker Service]
-        ProductCreatedConsumer[ProductCreatedConsumer]
-        ProductUpdatedConsumer[ProductUpdatedConsumer]
-        ProductDeletedConsumer[ProductDeletedConsumer]
-    end
-    
-    subgraph "Infraestructura"
-        RabbitMQ[RabbitMQ]
-        InventoryDB[(Inventory DB)]
-        NotificationDB[(Notification DB)]
-    end
-    
-    Client --> API
-    API --> ProductService
-    ProductService --> ResilientPublisher
-    ResilientPublisher --> RabbitMQ
-    ResilientPublisher --> PendingService
-    PendingService --> InventoryDB
-    BackgroundProcessor --> PendingService
-    BackgroundProcessor --> RabbitMQ
-    
-    RabbitMQ --> Worker
-    Worker --> ProductCreatedConsumer
-    Worker --> ProductUpdatedConsumer
-    Worker --> ProductDeletedConsumer
-    
-    ProductCreatedConsumer --> NotificationDB
-    ProductUpdatedConsumer --> NotificationDB
-    ProductDeletedConsumer --> NotificationDB
-    
-    Contracts --> API
-    Contracts --> Worker
-```
-
 ## Flujo de Patrones de Mensajería Implementados
 
 ```mermaid
@@ -409,63 +382,6 @@ graph TD
 
 ---
 
-## Limpieza de Docker y Levantamiento del Entorno Local
-
-> Ejecutar desde la raíz del proyecto, donde se encuentra el archivo `docker-compose.yml`.
-
-### 1. Detener y eliminar recursos de Docker Compose
-
-```
-docker-compose down --volumes --remove-orphans
-```
-
-### 2. Limpiar recursos de Docker no utilizados
-
-```
-docker container prune -f      # Eliminar contenedores detenidos
-docker volume prune -f         # Eliminar volúmenes no utilizados
-docker network prune -f        # Eliminar redes no utilizadas
-docker image prune -a -f       # (Opcional) Eliminar imágenes no utilizadas
-```
-
-### 3. Levantar el entorno con nuevo build
-
-```
-docker-compose up -d --build
-```
-
----
-
-
-## Endpoints de la API
-
-[http://localhost:5006/swagger/index.html](http://localhost:5006/swagger/index.html)
-
-
-## Pruebas con Postman
-
-### Descargar la Colección
-
-1. **Descargar la colección**: [RabbitMqDemo.postman_collection.json](RabbitMqDemo.postman_collection.json)
-2. **Importar en Postman**:
-   - Abrir Postman
-   - Hacer clic en "File" y luego "Import"
-   - Seleccionar el archivo `RabbitMqDemo.postman_collection.json`
-   - La colección se importará automáticamente
-
-### Endpoints Incluidos en la Colección
-
-#### **Productos**
-- `GET /api/products` - Obtener todos los productos
-- `GET /api/products/{id}` - Obtener producto por ID
-- `POST /api/products` - Crear nuevo producto
-- `PUT /api/products/{id}` - Actualizar producto
-- `DELETE /api/products/{id}` - Eliminar producto
-
-#### **Categorías**
-- `GET /api/categories` - Obtener todas las categorías
-
----
 
 ## Características Principales
 
@@ -490,19 +406,3 @@ docker-compose up -d --build
 - **Resiliencia** con políticas de timeout y circuit breaker 
 
 ---
-
-## Migraciones EF Core (en modo desarrollo)
-#### Setear  como proyecto principal API y en Package Manager Console (apuntando a Infrastructure) ejecutar los siguientes comandos:
-```
-
-Add-Migration Initial -Context InventoryDbContext -OutputDir Migrations
-Update-Database  -Context InventoryDbContext
-Remove-Migration -Context InventoryDbContext
-```
-
-#### Setear  como proyecto principal Worker y en Package Manager Console (apuntando a Infrastructure) ejecutar los siguientes comandos:
-```
-Add-Migration Initial -Context NotificationDbContext -OutputDir Migrations
-Update-Database  -Context NotificationDbContext
-Remove-Migration -Context NotificationDbContext
-```
