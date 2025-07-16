@@ -367,27 +367,3 @@ graph TD
 
 ---
 
-
-## Características Principales
-
-- **API REST completa** con todos los endpoints requeridos
-- **Integración con RabbitMQ** usando exchange direct
-- **Circuit Breaker + Timeout** para resiliencia
-- **Persistencia de mensajes** para evitar pérdidas
-- **Procesamiento automático** de mensajes pendientes
-- **Docker Compose** para el ambiente completo
-- **Documentación Swagger** incluida
-- **Manejo de errores** y reintentos
-- **Arquitectura limpia** con separación de responsabilidades 
-
-## Beneficios del Sistema
-
-- **No pérdida de mensajes** cuando RabbitMQ está caído
-- **Procesamiento automático** cuando el servicio se recupera
-- **Reintentos inteligentes** con límite configurable
-- **Monitoreo detallado** con logs estructurados
-- **Limpieza automática** de mensajes procesados
-- **Escalabilidad** con procesamiento en background
-- **Resiliencia** con políticas de timeout y circuit breaker 
-
----
