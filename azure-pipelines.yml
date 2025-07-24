@@ -1,0 +1,87 @@
+trigger:
+  branches:
+    include:
+      - master
+
+pool:
+  name: Self-Hosted
+
+variables:
+  - group: rabbitmq-demo-secrets
+  - name: buildConfiguration
+    value: 'Release'
+  - name: dotnetSdkVersion
+    value: '8.0.x'
+
+steps:
+# 1. Instalar .NET SDK
+- task: UseDotNet@2
+  displayName: 'Instalar .NET SDK $(dotnetSdkVersion)'
+  inputs:
+    packageType: 'sdk'
+    version: '$(dotnetSdkVersion)'
+
+# 2. Restaurar paquetes NuGet
+- task: DotNetCoreCLI@2
+  displayName: 'dotnet restore'
+  inputs:
+    command: 'restore'
+    projects: '**/*.csproj'
+
+# 3. Compilar la solucion
+- task: DotNetCoreCLI@2
+  displayName: 'dotnet build ($(buildConfiguration))'
+  inputs:
+    command: 'build'
+    projects: 'rabbitmq-demo.sln'
+    arguments: '--configuration $(buildConfiguration) --no-restore'
+
+# 4. Ejecutar pruebas unitarias/integracion
+- task: DotNetCoreCLI@2
+  displayName: 'dotnet test ($(buildConfiguration))'
+  inputs:
+    command: 'test'
+    projects: '**/*Tests/*.csproj'
+    arguments: '--configuration $(buildConfiguration) --no-build --verbosity normal'
+
+# 5. Generar dinamicamente el archivo .env
+- script: |
+    cd /home/benja/repos/rabbitmq-demo
+    echo "# RabbitMQ Configuration" > .env
+    echo "RABBIT_USER=$(RABBIT_USER)" >> .env
+    echo "RABBIT_PASS=$(RABBIT_PASS)" >> .env
+
+    echo "" >> .env
+    echo "# Notification Email Configuration" >> .env
+    echo "EMAIL_SMTP_SERVER=$(EMAIL_SMTP_SERVER)" >> .env
+    echo "EMAIL_PORT=$(EMAIL_PORT)" >> .env
+    echo "EMAIL_SENDER_NAME=\"$(EMAIL_SENDER_NAME)\"" >> .env
+    echo "EMAIL_SENDER_EMAIL=$(EMAIL_SENDER_EMAIL)" >> .env
+    echo "EMAIL_TO=$(EMAIL_TO)" >> .env
+    echo "EMAIL_USERNAME=$(EMAIL_USERNAME)" >> .env
+    echo "EMAIL_PASSWORD=$(EMAIL_PASSWORD)" >> .env
+
+    echo "" >> .env
+    echo "# Inventory Database Configuration" >> .env
+    echo "POSTGRES_INVENTORY_USER=$(POSTGRES_INVENTORY_USER)" >> .env
+    echo "POSTGRES_INVENTORY_PASSWORD=$(POSTGRES_INVENTORY_PASSWORD)" >> .env
+    echo "POSTGRES_INVENTORY_DB=$(POSTGRES_INVENTORY_DB)" >> .env
+    echo "INVENTORY_CONNECTION_STRING=\"$(INVENTORY_CONNECTION_STRING)\"" >> .env
+
+    echo "" >> .env
+    echo "# Notification Database Configuration" >> .env
+    echo "POSTGRES_NOTIFICATION_USER=$(POSTGRES_NOTIFICATION_USER)" >> .env
+    echo "POSTGRES_NOTIFICATION_PASSWORD=$(POSTGRES_NOTIFICATION_PASSWORD)" >> .env
+    echo "POSTGRES_NOTIFICATION_DB=$(POSTGRES_NOTIFICATION_DB)" >> .env
+    echo "NOTIFICATION_CONNECTION_STRING=\"$(NOTIFICATION_CONNECTION_STRING)\"" >> .env
+
+    echo "Archivo .env generado"
+  displayName: 'Generar archivo .env para docker-compose'
+
+# 6. Construir y levantar docker compose
+- script: |
+    cd /home/benja/repos/rabbitmq-demo
+    docker compose down --remove-orphans
+    docker compose build
+    docker compose up -d
+  displayName: 'docker compose build + up'
