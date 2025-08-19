@@ -40,7 +40,7 @@ docker compose up -d --build
 
 [http://localhost:5006/swagger/index.html](http://localhost:5006/swagger/index.html)
 
-## Desde una instancia de amazon EC2 (Linux) con Docker instalado, se puede acceder a la API en la siguiente URL:
+### Desde una instancia de amazon EC2 (Linux) con Docker instalado, se puede acceder a la API en la siguiente URL:
 http://34.194.153.164:5006/swagger
 
 
