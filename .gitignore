@@ -364,3 +364,4 @@ FodyWeavers.xsd
 
 # Ignore environment files
 /.env
+/ - Copy.env
